@@ -105,6 +105,7 @@ def main(_):
     rgbs = []
     sils = []
     dphs = []
+    dphs_color = []
     viss = []
     for i in range(bs):
         model_path = '%s/%s'% (opts.model_path.rsplit('/',1)[0], 'params_%d.pth'%(i))
@@ -175,20 +176,26 @@ def main(_):
         dph = cmap(dph)
         rgb = rgb * sil[...,None]
         dph = dph * sil[...,None]
-    
+
+        dph_color = cv2.applyColorMap(dph, cv2.COLORMAP_RAINBOW)
         rgbs.append(rgb)
         sils.append(sil*255)
         viss.append(vis*255)
-        dphs.append(dph*255)
+        dphs.append(dph)
+        dphs_color.append(dph_color)
+
         cv2.imwrite('%s-rgb_%05d.png'%(opts.nvs_outpath,i), rgb[...,::-1]*255)
         cv2.imwrite('%s-sil_%05d.png'%(opts.nvs_outpath,i), sil*255)
         cv2.imwrite('%s-vis_%05d.png'%(opts.nvs_outpath,i), vis*255)
-        cv2.imwrite('%s-dph_%05d.png'%(opts.nvs_outpath,i), dph[...,::-1]*255)
+
+        cv2.imwrite('%s-dph_color_%05d.png'%(opts.nvs_outpath,i), dph_color)
+        cv2.imwrite('%s-dph_%05d.png'%(opts.nvs_outpath,i), dph)
+
     save_vid('%s-rgb'%(opts.nvs_outpath), rgbs, suffix='.mp4')
     save_vid('%s-sil'%(opts.nvs_outpath), sils, suffix='.mp4')
     save_vid('%s-vis'%(opts.nvs_outpath), viss, suffix='.mp4')
     save_vid('%s-dph'%(opts.nvs_outpath), dphs, suffix='.mp4')
-
+    save_vid('%s-dph_color'%(opts.nvs_outpath), dphs_color, suffix='.mp4')
 
 if __name__ == '__main__':
     app.run(main)

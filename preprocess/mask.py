@@ -56,6 +56,9 @@ predictor = DefaultPredictor(cfg)
 
 counter=0 
 frames = []
+print("sorted datadir in mask:")
+print("dirname:", '%s/*'%datadir)
+print(sorted(glob.glob('%s/*'%datadir)))
 for i,path in enumerate(sorted(glob.glob('%s/*'%datadir))):
     print(path)
     img = cv2.imread(path)
@@ -120,6 +123,8 @@ for i,path in enumerate(sorted(glob.glob('%s/*'%datadir))):
     
     counter+=1
     frames.append(vis[:,:,::-1])    
-  
+ 
+print('%s/vis'%maskdir)
+print(frames)
 save_vid('%s/vis'%maskdir, frames, suffix='.mp4')
 save_vid('%s/vis'%maskdir, frames, suffix='.gif')

@@ -1,0 +1,11 @@
+[data]
+dframe = 1
+init_frame = 0
+end_frame = -1
+can_frame = -1
+
+[data_0]
+ks = 1790.5410755209614 1805.1144971784436 947.6587417099083 555.9208618556977
+datapath = database/DAVIS/JPEGImages/Full-Resolution/test-full000/
+rtk_path = misc/rtks/test-full/cam
+

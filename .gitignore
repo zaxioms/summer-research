@@ -1,5 +1,8 @@
 cam-files/
+mesh_material
+configs
 trash/*
+data-analysis
 raw
 mesh_material/geodists_smpl_27554.pkl
 mesh_material/geodists_sheep_5004.pkl
@@ -11,3 +14,4 @@ __pycache__/
 lasr_vcn/
 *.pyc
 .nfs*
+third_party

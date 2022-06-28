@@ -83,14 +83,15 @@ def bone_density_loss(mlp, embed, bones):
     y = evaluate_mlp(mlp, pts_embedded, pts.shape[0], sigma_only=True)
     return bone_density_loss
 
-def visibility_loss(mlp, embed, xyz_pos, w_pos, bound, chunk):
+def visibility_loss(mlp, embed, xyz_pos, w_pos, vis_at_samp, bound, chunk):
     """
     w_pos: num_points x num_samples, visibility returns from nerf
     bound: scalar, used to sample negative samples
     """
     device = next(mlp.parameters()).device
-    xyz_pos = xyz_pos.detach().clone()
-    w_pos = w_pos.detach().clone()
+    valid_pxs = vis_at_samp[...,0] > 0
+    xyz_pos = xyz_pos.detach().clone()[valid_pxs]
+    w_pos = w_pos.detach().clone()[valid_pxs]
     
     # negative examples
     nsample = w_pos.shape[0]*w_pos.shape[1]

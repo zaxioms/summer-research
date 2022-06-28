@@ -35,6 +35,7 @@ from util_flow import write_pfm
   
 
 seqname=sys.argv[1]
+print("dp_seqanme", seqname)
 ishuman=sys.argv[2] # 'y/n'
 odir='database/DAVIS/'
 imgdir= '%s/JPEGImages/Full-Resolution/%s'%(odir,seqname)

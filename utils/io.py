@@ -303,6 +303,7 @@ def config_to_dataloader(opts, is_eval=False):
     config.read('configs/%s.config'%opts['seqname'])
     
     numvid =  len(config.sections())-1
+    print(numvid)
     datalist = []
     for i in range(numvid):
         dataset = get_config_info(opts, config, 'data_%d'%i, i, is_eval=is_eval)
@@ -406,7 +407,8 @@ class LineDataset(Dataset):
                     dframe=1,init_frame=0, dataid=0, numvid=1, flip=0, 
                     is_eval=False, rtk_path=None):
         super(LineDataset, self).__init__()
-        self.crop_factor = 1.2
+        self.crop_factor = 3
+        #self.crop_factor = 1.2
         self.imglist = imglist
         self.img_size = opts['img_size']
         self.num_lines = (len(imglist)-1) * self.img_size # last img not saved

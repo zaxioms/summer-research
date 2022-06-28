@@ -1,4 +1,4 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+#Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
 dev=$1
 seqname=$2
 model_path=$3
@@ -6,31 +6,32 @@ vidid=$4   # pose traj
 rootid=$5  # root traj
 
 testdir=${model_path%/*} # %: from end
+echo $testdir
 save_prefix=$testdir/nvs-$vidid-$rootid
 scale=1
-sample_grid3d=256
-add_args="--sample_grid3d ${sample_grid3d} --full_mesh \
-  --nouse_corresp --nouse_embed --nouse_proj --render_size 2 --ndepth 2"
+sample_grid3d=64
+add_args="--sample_grid3d ${sample_grid3d} \
+  --nouse_corresp --nouse_embed --nouse_proj --render_size 2 --ndepth 2 --nouse_cc"
 
-# extrat meshes
+#extrat meshes
 CUDA_VISIBLE_DEVICES=$dev python extract.py --flagfile=$testdir/opts.log \
-                  --model_path $model_path \
-                  --test_frames {${rootid}","${vidid}} \
-                  $add_args
+                   --model_path $model_path \
+                   --test_frames {${rootid}","${vidid}} \
+                   $add_args
 
 # re-render the trained sequence
 prefix=$testdir/$seqname-{$vidid}
 trgpath=$prefix-vgray
 
-# raw video
+## raw video
 CUDA_VISIBLE_DEVICES=$dev python scripts/visualize/render_vis.py --testdir $testdir \
                      --outpath $trgpath-vid \
                      --seqname $seqname \
                      --test_frames {$vidid} \
                      --append_img yes \
                      --append_render no
-
-# masks
+#
+## masks
 CUDA_VISIBLE_DEVICES=$dev python scripts/visualize/render_vis.py --testdir $testdir \
                      --outpath $trgpath --vp 0 \
                      --seqname $seqname \

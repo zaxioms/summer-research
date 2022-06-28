@@ -106,8 +106,12 @@ def main(_):
     rgbs = []
     sils = []
     viss = []
+    dphs = []
+    dphs_color = []
     for i in range(bs):
         rndsil = rndsils[i]
+        #TODO for bg rendering
+        rndsil[:] = 1
         rndmask = np.zeros((img_size, img_size))
         if img_type=='vert':
             size_short_edge = int(rndsil.shape[1] * img_size/rndsil.shape[0])
@@ -161,8 +165,8 @@ def main(_):
         dph = results['depth_rnd'] [...,0].cpu().numpy()
         sil = results['sil_coarse'][...,0].cpu().numpy()
         vis = results['vis_pred']  [...,0].cpu().numpy()
-        sil[sil<0.5] = 0
-        rgb[sil<0.5] = 1
+        #sil[sil<0.5] = 0
+        #rgb[sil<0.5] = 1
 
         rgbtmp = np.ones((img_size, img_size, 3))
         dphtmp = np.ones((img_size, img_size))
@@ -183,17 +187,41 @@ def main(_):
             sil = siltmp[:size_short_edge]
             vis = vistmp[:size_short_edge]
             dph = dphtmp[:size_short_edge]
-    
+
+        # invert depth for visualization
+        dph_color = cv2.applyColorMap((255 - (dph/(np.amax(dph.flatten()))*255)).astype("uint8"),cv2.COLORMAP_PLASMA)
+
         rgbs.append(rgb)
         sils.append(sil*255)
         viss.append(vis*255)
+        dphs.append(dph*255)
+        dphs_color.append(dph_color)
+
         cv2.imwrite('%s-rgb_%05d.png'%(opts.nvs_outpath,i), rgb[...,::-1]*255)
         cv2.imwrite('%s-sil_%05d.png'%(opts.nvs_outpath,i), sil*255)
         cv2.imwrite('%s-vis_%05d.png'%(opts.nvs_outpath,i), vis*255)
+        cv2.imwrite('%s-dph_%05d.png'%(opts.nvs_outpath,i), dph*255)
+        cv2.imwrite('%s-dph_color_%05d.png'%(opts.nvs_outpath,i), dph_color)
+
+
     save_vid('%s-rgb'%(opts.nvs_outpath), rgbs, suffix='.mp4',upsample_frame=0)
     save_vid('%s-sil'%(opts.nvs_outpath), sils, suffix='.mp4',upsample_frame=0)
     save_vid('%s-vis'%(opts.nvs_outpath), viss, suffix='.mp4',upsample_frame=0)
+    save_vid('%s-dph'%(opts.nvs_outpath), dphs, suffix='.mp4',upsample_frame=0)
 
+
+    #save_vid('%s-dph_color'%(opts.nvs_outpath), dphs_color, suffix='.mp4',upsample_frame=0)
+    print(len(dphs_color))
+    dph_color_vid = cv2.VideoWriter('%s-dph_color.mp4'%(opts.nvs_outpath), cv2.VideoWriter_fourcc(*'mp4v'), 20, (dphs_color[0].shape[1], dphs_color[0].shape[0]))
+
+    dph_color_vid_back = cv2.VideoWriter('%s-dph_color-back.mp4'%(opts.nvs_outpath), cv2.VideoWriter_fourcc(*'mp4v'), 20, (dphs_color[0].shape[0], dphs_color[0].shape[1]))
+    for frame in dphs_color:
+        dph_color_vid.write(frame)
+        dph_color_vid_back.write(frame)
+
+    dph_color_vid.release()
+
+    dph_color_vid_back.release()
 
 if __name__ == '__main__':
     app.run(main)

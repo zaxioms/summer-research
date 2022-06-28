@@ -644,6 +644,13 @@ class v2s_trainer():
             quat = transforms.matrix_to_quaternion(rmat).to(self.device)
             self.model.module.nerf_root_rts.base_rt.se3.data[:,3:] = quat
 
+            tmat = torch.Tensor(self.model.latest_vars['rt_raw'][:,:3,3])
+            tmat = tmat.to(self.device)
+            tmat = tmat / 10
+            tmat[...,2] -= 0.3
+            tmat = tmat*10 # to accound for *0.1 in expmlp
+            self.model.module.nerf_root_rts.base_rt.se3.data[:,:3] = tmat
+
         # clear buffers for pytorch1.10+
         try: self.model._assign_modules_buffers()
         except: pass
@@ -1278,6 +1285,8 @@ class v2s_trainer():
 
         #if aux_out['nerf_root_rts_g']>10:
         #    is_invalid_grad = True
+        if aux_out['nerf_beta_g']>0.1:
+            is_invalid_grad = True
         if is_invalid_grad:
             self.zero_grad_list(self.model.parameters())
             

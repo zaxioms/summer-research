@@ -2,6 +2,7 @@ from __future__ import print_function
 import sys
 sys.path.insert(0,'../')
 import cv2
+import os
 import pdb
 import argparse
 import numpy as np
@@ -63,6 +64,10 @@ dframe = args.dframe
 mkdir_p('./%s/FlowFW_%d'     % (seqname,dframe))
 mkdir_p('./%s/FlowBW_%d'     % (seqname,dframe))
 
+print("datapath:", args.datapath)
+print("dir", os.listdir(args.datapath))
+print("seqname:", seqname)
+print("input to test_left_img", glob.glob('%s/*'%(args.datapath)))
 test_left_img = sorted(glob.glob('%s/*'%(args.datapath)))
 silhouettes = sorted(glob.glob('%s/*'%(args.datapath.replace('JPEGImages', 'Annotations'))))
 
@@ -153,7 +158,10 @@ def main():
     model.eval()
     inx=0;jnx=dframe
     while True:
-        print('%s/%s'%(test_left_img[inx],test_left_img[jnx]))
+#        print("arr:", test_left_img)
+ #       print("len:", len(test_left_img))
+  #      print("jnx:", jnx)
+   #     print('%s/%s'%(test_left_img[inx],test_left_img[jnx]))
         if inx%dframe==0:
             imgL_o = cv2.imread(test_left_img[inx])[:,:,::-1]
             imgR_o = cv2.imread(test_left_img[jnx])[:,:,::-1]

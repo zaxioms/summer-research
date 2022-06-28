@@ -53,7 +53,8 @@ class BaseDataset(Dataset):
         self.img_size = opts['img_size']
         self.filter_key = filter_key
         self.flip=0
-        self.crop_factor = 1.2
+        self.crop_factor = 3
+        #self.crop_factor = 1.2
         self.load_pair = True
         self.spec_dt = 0 # whether to specify the dframe, only in preload
     
@@ -220,7 +221,7 @@ class BaseDataset(Dataset):
         hp0 = np.dot(hp0,A.dot(B))                   # image coord
         return kaug, hp0, A,B
 
-    def flow_process(self,flow, flown, occ, occn, hp0, hp1, A,B,Ap,Bp):
+    def flow_process(self,flow, flown, occ, occn, vis2d, vis2dn, hp0, hp1, A,B,Ap,Bp):
         maxw=self.img_size;maxh=self.img_size
         # augmenta flow
         hp1c = np.concatenate([flow[:,:,:2] + hp0[:,:,:2], np.ones_like(hp0[:,:,:1])],-1) # image coord
@@ -235,6 +236,9 @@ class BaseDataset(Dataset):
         x0,y0  =np.meshgrid(range(maxw),range(maxh))
         hp0 = np.stack([x0,y0],-1)  # screen coord
         #hp0 = np.stack([x0,y0,np.ones_like(x0)],-1)  # screen coord
+        
+        occ_pred = occ > 0 # combine uncertainty with fb uncertainty 
+        occn_pred = occn > 0 
 
         dis = warp_flow(hp0 + flown, flow[:,:,:2]) - hp0
         dis = np.linalg.norm(dis[:,:,:2],2,-1) 
@@ -244,6 +248,9 @@ class BaseDataset(Dataset):
         occ[occ<0.25] = 0. # this corresp to 1/40 img size
         #dis = np.linalg.norm(dis[:,:,:2],2,-1) * 0.1
         #occ[occ!=0] = dis[occ!=0]
+        occ_mask = warp_flow(vis2d.astype(float), flow[:,:,:2])<1
+        occ[occ_mask] = 0 # remove out-of-frame flow
+        occ[occ_pred] = 0
 
         disn = warp_flow(hp0 + flow, flown[:,:,:2]) - hp0
         disn = np.linalg.norm(disn[:,:,:2],2,-1)
@@ -252,6 +259,9 @@ class BaseDataset(Dataset):
         occn[occn<0.25] = 0.
         #disn = np.linalg.norm(disn[:,:,:2],2,-1) * 0.1
         #occn[occn!=0] = disn[occn!=0]
+        occn_mask = warp_flow(vis2dn.astype(float), flown[:,:,:2])<1
+        occn[occn_mask] = 0 # remove out-of-frame flow
+        occn[occn_pred] = 0
 
         # ndc
         flow[:,:,0] = 2 * (flow[:,:,0]/maxw)
@@ -323,7 +333,7 @@ class BaseDataset(Dataset):
             #print('before process:%f'%(time.time()-ss))
        
             flow, flown, occ, occn = self.flow_process(flow, flown, occ, occn,
-                                        hp0, hp1, A,B,Ap,Bp)
+                                        vis2d, vis2dn, hp0, hp1, A,B,Ap,Bp)
             #print('after process:%f'%(time.time()-ss))
             
             # stack data
@@ -359,86 +369,6 @@ class BaseDataset(Dataset):
         elem['is_canonical']  =  is_canonical
         return elem
 
-    def preload_data(self, index):
-        #TODO combine to a single function with load_data
-        try:dataid = self.dataid
-        except: dataid=0
-
-        im0idx = self.baselist[index]
-        dir_fac = self.directlist[index]*2-1
-        dframe_list = [2,4,8,16,32]
-        max_id = max(self.baselist)
-        dframe_list = [1] + [i for i in dframe_list if (im0idx%i==0) and \
-                             int(im0idx+i*dir_fac) <= max_id]
-        dframe = np.random.choice(dframe_list)
-        if self.spec_dt>0:dframe=self.dframe
-
-        save_dir  = self.imglist[0].replace('JPEGImages', 'Preload').rsplit('/',1)[0]
-        data_path = '%s/%d_%05d.npy'%(save_dir, dframe, im0idx)
-        elem = np.load(data_path,allow_pickle=True).item()
-        # modify dataid according to training time ones
-        elem['dataid'] = np.stack([dataid, dataid])[None]
-
-        # reload rtk based on rtk predictions
-        # add RTK: [R_3x3|T_3x1]
-        #          [fx,fy,px,py], to the ndc space
-        # always forward flow
-        im1idx = im0idx + dframe 
-        try:
-            rtk_path = self.rtklist[im0idx]
-            rtk = np.loadtxt(rtk_path)
-            rtkn_path = self.rtklist[im1idx]
-            rtkn = np.loadtxt(rtkn_path)
-            rtk = np.stack([rtk, rtkn])         
-        except:
-            print('warning: loading empty camera')
-            print(rtk_path)
-            rtk = np.zeros((4,4))
-            rtk[:3,:3] = np.eye(3)
-            rtk[:3, 3] = np.asarray([0,0,10])
-            rtk[3, :]  = np.asarray([512,512,256,256]) 
-            rtkn = rtk.copy()
-            rtk = np.stack([rtk, rtkn])         
-        elem['rtk']= rtk[None]
-
-        for k in elem.keys():
-            elem[k] = elem[k][0]
-            if not self.load_pair:
-                elem[k] = elem[k][:1]
-        
-        # deal with img_size (only for eval visualization purpose)
-        current_size = elem['img'].shape[-1]
-        # how to make sure target_size is even
-        # target size (512?) + 2pad = image size (512)
-        target_size = int(self.img_size / self.crop_factor * 1.2 /2) * 2
-        pad = (self.img_size - target_size)//2 
-        for k in ['img', 'mask', 'flow', 'occ', 'dp', 'vis2d']:
-            tensor = torch.Tensor(elem[k]).view(1,-1,current_size, current_size)
-            tensor = F.interpolate(tensor, (target_size, target_size), 
-                        mode='nearest')
-            tensor = F.pad(tensor, (pad, pad, pad, pad))
-            elem[k] = tensor.numpy()
-        # deal with intrinsics change due to crop factor
-        length = elem['kaug'][:,:2] * 512 / 2 / 1.2
-        elem['kaug'][:,2:] += length*(1.2-self.crop_factor)
-        elem['kaug'][:,:2] *= current_size/float(target_size)
-
-        return elem
-
-
     def __getitem__(self, index):
-        if self.preload:
-            # find the corresponding fw index in the dataset
-            if self.directlist[index] != 1:
-                refidx = self.baselist[index]-1
-                same_idx = np.where(np.asarray(self.baselist)==refidx)[0]
-                index = sorted(same_idx)[0]
-            try:
-                # fail loading the last index of the dataset
-                elem = self.preload_data(index)
-            except:
-                print('loading %d failed'%index)
-                elem = self.preload_data(0)
-        else:
-            elem = self.load_data(index)    
+        elem = self.load_data(index)    
         return elem

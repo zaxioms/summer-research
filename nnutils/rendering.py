@@ -367,7 +367,7 @@ def inference_deform(xyz_coarse_sampled, rays, models, chunk, N_samples,
         result['vis_pred'] = (vis_pred * weights_coarse).sum(-1)
 
     if fine_iter:
-        if opts.use_corresp:
+        if 'rtk_vec_target' in rays.keys():
             # for flow rendering
             pts_exp = compute_pts_exp(weights_coarse, xyz_coarse_sampled)
             pts_target = kp_reproj(pts_exp, models, embedding_xyz, rays, 
@@ -462,7 +462,7 @@ def inference_deform(xyz_coarse_sampled, rays, models, chunk, N_samples,
 
         if is_training and 'nerf_vis' in models.keys():
             result['vis_loss'] = visibility_loss(models['nerf_vis'], embedding_xyz,
-                            xyz_coarse_sampled, vis_coarse, obj_bound, chunk)
+                            xyz_coarse_sampled, vis_coarse, rays['vis_at_samp'], obj_bound, chunk)
 
         # render flow 
         if 'rtk_vec_target' in rays.keys():
@@ -470,8 +470,7 @@ def inference_deform(xyz_coarse_sampled, rays, models, chunk, N_samples,
                 flo_coarse, flo_valid = vrender_flo(weights_coarse, xyz_coarse_target,
                                                     xys, img_size)
             else:
-                flo_coarse = diff_flo(pts_target, xys, img_size)
-                flo_valid = torch.ones_like(flo_coarse[...,:1])
+                flo_coarse, flo_valid = diff_flo(pts_target, xys, img_size)
 
             result['flo_coarse'] = flo_coarse
             result['flo_valid'] = flo_valid
@@ -524,7 +523,8 @@ def inference_deform(xyz_coarse_sampled, rays, models, chunk, N_samples,
             sil_loss_samp = sil_loss_samp * vis_at_samp
                
             # flo loss, confidence weighting: 30x normalized distance - 0.1x pixel error
-            flo_loss_samp = (flo_coarse - flo_at_samp).pow(2).sum(-1)
+            #flo_loss_samp = (flo_coarse - flo_at_samp).pow(2).sum(-1)
+            flo_loss_samp = (flo_coarse - flo_at_samp).norm(2,-1)*0.05
             # hard-threshold cycle error
             sil_at_samp_flo = (sil_at_samp>0)\
                      & (flo_valid==1)

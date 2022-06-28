@@ -1477,7 +1477,7 @@ def vrender_flo(weights_coarse, xyz_coarse_target, xys, img_size):
     #flo_coarse = xy_coarse_target - xys_unsq
 
     flo_coarse = flo_coarse/img_size * 2
-    flo_valid = (invalid_ind.sum(-1)==0).float()[...,None]
+    flo_valid = ((1-invalid_ind.float()).sum(-1)>0).float()[...,None]
     return flo_coarse, flo_valid
 
 def diff_flo(pts_target, xys, img_size):
@@ -1492,7 +1492,8 @@ def diff_flo(pts_target, xys, img_size):
     pts_target = pts_target.view(xys.shape)
     flo_coarse = pts_target - xys
     flo_coarse = flo_coarse/img_size * 2
-    return flo_coarse
+    flo_valid = torch.ones_like(flo_coarse[...,:1])
+    return flo_coarse, flo_valid
 
 def fid_reindex(fid, num_vids, vid_offset):
     """

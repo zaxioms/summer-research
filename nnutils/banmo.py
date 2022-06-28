@@ -380,7 +380,8 @@ class banmo(nn.Module):
             self.dp_faces = torch.Tensor(self.dp_faces).cuda(self.device).long()
             
             self.dp_verts -= self.dp_verts.mean(0)[None]
-            self.dp_verts /= self.dp_verts.abs().max()
+            self.dp_verts = F.normalize(self.dp_verts, 2,-1) #TODO unit sphere
+            #self.dp_verts /= self.dp_verts.abs().max()
             self.dp_verts_unit = self.dp_verts.clone()
             self.dp_verts *= (self.near_far[:,1] - self.near_far[:,0]).mean()/2
             
@@ -512,17 +513,18 @@ class banmo(nn.Module):
         aux_out['sil_loss'] = sil_loss
         aux_out['img_loss'] = img_loss
         total_loss = img_loss
-        total_loss = total_loss + sil_loss 
+        #total_loss = total_loss + sil_loss 
           
         # feat rnd loss
-        frnd_loss_samp = opts.frnd_wt*rendered['frnd_loss_samp']
-        if opts.loss_flt:
-            frnd_loss_samp[invalid_idx] *= 0
-        if opts.rm_novp:
-            frnd_loss_samp = frnd_loss_samp * rendered['sil_coarse'].detach()
-        feat_rnd_loss = frnd_loss_samp[sil_at_samp[...,0]>0].mean() # eval on valid pts
-        aux_out['feat_rnd_loss'] = feat_rnd_loss
-        total_loss = total_loss + feat_rnd_loss
+        if opts.use_embed:
+            frnd_loss_samp = opts.frnd_wt*rendered['frnd_loss_samp']
+            if opts.loss_flt:
+                frnd_loss_samp[invalid_idx] *= 0
+            if opts.rm_novp:
+                frnd_loss_samp = frnd_loss_samp * rendered['sil_coarse'].detach()
+            feat_rnd_loss = frnd_loss_samp[sil_at_samp[...,0]>0].mean() # eval on valid pts
+            aux_out['feat_rnd_loss'] = feat_rnd_loss
+            total_loss = total_loss + feat_rnd_loss
   
         # flow loss
         if opts.use_corresp:
@@ -1288,6 +1290,8 @@ class banmo(nn.Module):
         self.errid = self.frameid*opts.img_size + self.lineid.cpu() # for err filter
         self.rt_raw  = self.rtk.clone()[:,:3]
 
+        #TODO
+        self.masks = 1-self.masks
         # process silhouette
         self.masks = (self.masks*self.vis2d)>0
         self.masks = self.masks.float()
@@ -1340,6 +1344,8 @@ class banmo(nn.Module):
         self.errid = self.frameid # for err filter
         self.rt_raw  = self.rtk.clone()[:,:3]
 
+        #TODO
+        self.masks = 1-self.masks
         # process silhouette
         self.masks = (self.masks*self.vis2d)>0
         self.masks = self.masks.float()
@@ -1422,7 +1428,6 @@ class banmo(nn.Module):
                 root_rts = self.nerf_root_rts(frameid)
             else: print('error'); exit()
             rt_raw = self.refine_rt(rt_raw, root_rts)
-             
         return rt_raw
 
     def save_latest_vars(self):
