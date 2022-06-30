@@ -103,11 +103,16 @@ def main(_):
               model.data_offset[opts.vidid]
     if opts.bullet_time>-1: embedid[:] = opts.bullet_time+model.data_offset[opts.vidid]
     print(embedid)
+
     rgbs = []
     sils = []
     viss = []
     dphs = []
     dphs_color = []
+    Kinv = K2inv(torch.Tensor(rtks)[:,3])
+    print("KINV SHAPE", Kinv.shape)
+
+
     for i in range(bs):
         rndsil = rndsils[i]
         #TODO for bg rendering
@@ -203,6 +208,17 @@ def main(_):
         cv2.imwrite('%s-dph_%05d.png'%(opts.nvs_outpath,i), dph*255)
         cv2.imwrite('%s-dph_color_%05d.png'%(opts.nvs_outpath,i), dph_color)
 
+        pts = []
+        for idx in range(dph.shape[0]):
+            for jdx in range(dph.shape[1]):
+                M = (torch.mv((Kinv[i]).float(), torch.Tensor([idx, jdx, 1]))).numpy()
+                print("M SHAPE", M.shape)
+                out = M * np.float32(dph[idx][jdx])
+                print("shape: ", out.shape)
+                pts.append(out)
+
+
+        trimesh.Trimesh(pts).export("%s-dph_%05d.obj"%(opts.nvs_outpath, i))
 
     save_vid('%s-rgb'%(opts.nvs_outpath), rgbs, suffix='.mp4',upsample_frame=0)
     save_vid('%s-sil'%(opts.nvs_outpath), sils, suffix='.mp4',upsample_frame=0)
