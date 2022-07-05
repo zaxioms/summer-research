@@ -110,6 +110,9 @@ def main(_):
     dphs = []
     dphs_color = []
     Kinv = K2inv(torch.Tensor(rtks)[:,3])
+    Rmat = rtks[:,:3,:3]
+    Tmat = rtks[:,:3,3]
+
     print("KINV SHAPE", Kinv.shape)
 
 
@@ -209,13 +212,23 @@ def main(_):
         cv2.imwrite('%s-dph_color_%05d.png'%(opts.nvs_outpath,i), dph_color)
 
         pts = []
-        for idx in range(dph.shape[0]):
-            for jdx in range(dph.shape[1]):
-                M = (torch.mv((Kinv[i]).float(), torch.Tensor([idx, jdx, 1]))).numpy()
-                print("M SHAPE", M.shape)
-                out = M * np.float32(dph[idx][jdx])
-                print("shape: ", out.shape)
-                pts.append(out)
+        for jdx in range(dph.shape[0]):
+            for idx in range(dph.shape[1]):
+                out = (torch.mv((Kinv[i]).float(), torch.Tensor([idx, jdx, 1]))).numpy() * np.float32(dph[jdx][idx])
+                print("out shape:", out.shape)
+                R_inv = torch.transpose(torch.Tensor(Rmat[i]), 0, 1)
+
+                T = torch.Tensor(Tmat[i])
+                top_right = torch.reshape(-torch.mv(R_inv, T), (3, 1))
+                T_inv_top = torch.cat((R_inv, top_right), 1)
+                
+                print("top shape", T_inv_top.shape)
+                T_inv_bottom = torch.reshape((torch.Tensor([0, 0, 0, 1])).t(), (1, 4))
+                T_inv = torch.cat((T_inv_top, T_inv_bottom), 0)
+                out = np.append(out, [1])
+                out = torch.mv(T_inv, torch.tensor(out).float())
+
+                pts.append((out.numpy())[:-1])
 
 
         trimesh.Trimesh(pts).export("%s-dph_%05d.obj"%(opts.nvs_outpath, i))
